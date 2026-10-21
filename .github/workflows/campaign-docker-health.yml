@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: f150f1ea2ba2929b1cf112d42cd1d96fb9793ee6
+          ref: f14765189927e376df6f5de9cdbd4d579f037035
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -25,7 +25,7 @@ jobs:
         shell: python
         run: |
           import subprocess,json
-          head='f150f1ea2ba2929b1cf112d42cd1d96fb9793ee6'
+          head='f14765189927e376df6f5de9cdbd4d579f037035'
           base='713285b554bbc99c8ae0261fe307beb3cbeb2adf'
           def git(*a):return subprocess.check_output(['git',*a],text=True).strip()
           assert git('rev-parse','HEAD')==head
