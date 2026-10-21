@@ -39,6 +39,8 @@ COPY --chown=node:node . .
 ENV HOST=0.0.0.0
 ENV PORT=4173
 EXPOSE 4173
+# A bounded local HTTP probe uses the Node runtime already present in the image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["node", "scripts/docker-healthcheck.mjs"]
 # The launcher is `npm run dev` plus one step: it trusts the container's
 # gateway address for Provider Settings, because that is where Docker delivers
 # the host's own browser from (never 127.0.0.1). See scripts/docker-start.mjs.

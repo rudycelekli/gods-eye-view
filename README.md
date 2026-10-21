@@ -156,6 +156,8 @@ configured keys straight from the Keychain. It starts keyless too.
 ### Path 3 — Docker
 
 No Node install needed; the container publishes the same dev server.
+Docker reports health from a bounded local HTTP probe on `PORT` (4173 by default).
+`healthy` means the web listener responds successfully; it does not certify data-provider availability.
 
 ```bash
 git clone https://github.com/bilawalsidhu/gods-eye-view.git
