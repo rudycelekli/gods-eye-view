@@ -1,0 +1,63 @@
+name: Frozen candidate native gates
+
+on:
+  push:
+    branches: [validation/gods-native-20261021]
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    if: github.repository == 'rudycelekli/gods-eye-view'
+    name: ${{ matrix.candidate }} / Node 24.14.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - candidate: upstream-baseline
+            sha: 713285b554bbc99c8ae0261fe307beb3cbeb2adf
+          - candidate: route-modes
+            sha: 56f6a20b506f3a38299d5a0d1e14bc3655334f90
+          - candidate: place-distances
+            sha: c0f92207ae6ccdb79dd8d0928211e1454d04c6a1
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1'
+      GEV_REQUIRE_ALLOCATION_GATE: '1'
+    steps:
+      - name: Check out the exact standalone source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Use the calibrated native runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - name: Record immutable inputs
+        env:
+          EXPECTED_HEAD: ${{ matrix.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git rev-parse HEAD
+          node --version
+          npm --version
+          sha256sum package-lock.json
+      - name: Install the exact lockfile
+        run: npm ci
+      - name: Check setup policy
+        run: npm run doctor -- --json
+      - name: Check adopted formatting
+        run: npm run format:check
+      - name: Check package boundaries
+        run: npm run check:boundaries
+      - name: Check translations
+        run: npm run i18n
+      - name: Run the unchanged complete native unit runner
+        run: npm test
+      - name: Build the production application
+        run: npm run build
