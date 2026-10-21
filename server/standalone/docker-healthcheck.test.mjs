@@ -9,9 +9,14 @@ const script = fileURLToPath(
   new URL('../../scripts/docker-healthcheck.mjs', import.meta.url),
 );
 
-async function probe(port) {
+async function probe(port, environment = {}) {
   const child = spawn(process.execPath, [script], {
-    env: { ...process.env, PORT: String(port), HOST: '0.0.0.0' },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOST: '0.0.0.0',
+      ...environment,
+    },
     stdio: 'ignore',
     timeout: 6000,
   });
@@ -81,4 +86,30 @@ test('redirects are not followed to another origin', async (t) => {
   });
   assert.equal(await probe(port), 1);
   assert.equal(destinationHits, 0);
+});
+
+test('proxy environment cannot redirect the loopback health probe', async (t) => {
+  let targetHits = 0;
+  let proxyHits = 0;
+  const target = await serve(t, (_req, res) => {
+    targetHits += 1;
+    res.end('healthy');
+  });
+  const proxy = await serve(t, (_req, res) => {
+    proxyHits += 1;
+    res.writeHead(503);
+    res.end();
+  });
+  assert.equal(
+    await probe(target, {
+      NODE_USE_ENV_PROXY: '1',
+      HTTP_PROXY: `http://127.0.0.1:${proxy}`,
+      http_proxy: `http://127.0.0.1:${proxy}`,
+      NO_PROXY: '',
+      no_proxy: '',
+    }),
+    0,
+  );
+  assert.equal(targetHits, 1);
+  assert.equal(proxyHits, 0);
 });

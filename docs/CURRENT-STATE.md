@@ -3,8 +3,8 @@
 The Docker image has a Node-based HTTP health check against its own loopback listener
 on `PORT` (4173 by default). The probe refuses redirects, times out after three
 seconds, and reports non-success responses or connection failure as unhealthy.
-Docker allows 30 seconds for startup, probes every 30 seconds, and requires three
-failures before marking an already running container unhealthy. This checks web
+Docker allows a 30-second startup grace period, then probes at 30-second intervals
+and requires three consecutive failures to mark the container unhealthy. This checks web
 listener availability, not external provider status.
 
 Analyst region queries resolve unique Natural Earth names offline without
