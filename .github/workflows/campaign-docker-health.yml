@@ -1,0 +1,104 @@
+name: Fork-only frozen Docker health validation
+on:
+  push:
+    branches: [validation/gods-docker-health-20261021]
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.repository == 'rudycelekli/gods-eye-view'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PUPPETEER_CACHE_DIR: /tmp/gev-health-chrome
+      GEV_REQUIRE_ALLOCATION_GATE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: f150f1ea2ba2929b1cf112d42cd1d96fb9793ee6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+      - name: Assert frozen focused source
+        shell: python
+        run: |
+          import subprocess,json
+          head='f150f1ea2ba2929b1cf112d42cd1d96fb9793ee6'
+          base='713285b554bbc99c8ae0261fe307beb3cbeb2adf'
+          def git(*a):return subprocess.check_output(['git',*a],text=True).strip()
+          assert git('rev-parse','HEAD')==head
+          assert git('merge-base',base,head)==base
+          paths=set(git('diff','--name-only',base,head).splitlines())
+          assert paths=={'Dockerfile','README.md','docs/CURRENT-STATE.md','scripts/docker-healthcheck.mjs','server/standalone/docker-healthcheck.test.mjs'},paths
+          assert not git('status','--porcelain')
+          print(json.dumps({'head':head,'base':base,'tree':git('rev-parse','HEAD^{tree}'),'paths':sorted(paths)}))
+      - name: Install locked dependencies
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+        run: npm ci
+      - name: Required policy and formatting checks
+        run: |
+          npm run doctor -- --json
+          npm run format:check
+          npm run check:boundaries
+      - name: Full unit suite with calibrated Node 24 allocation gates
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install pinned test Chrome
+        run: ./node_modules/.bin/puppeteer browsers install chrome --install-deps
+      - name: Real application tracking gate with synthetic traffic and offline imagery
+        timeout-minutes: 12
+        run: |
+          node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4173 --strictPort > /tmp/gev-health-vite.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/track-regression.mjs --offline-imagery --url http://127.0.0.1:4173
+      - name: Build actual Docker image without credentials or model calls
+        run: docker build --tag gev-campaign-health:validation .
+      - name: Validate image defaults and actual healthy and unhealthy containers
+        shell: python
+        run: |
+          import subprocess,json,time
+          image='gev-campaign-health:validation'
+          names=['gev-health-ready','gev-health-error']
+          def command(*args):return subprocess.check_output(list(args),text=True).strip()
+          config=json.loads(command('docker','image','inspect',image))[0]['Config']
+          health=config['Healthcheck']
+          assert health['Test']==['CMD','node','scripts/docker-healthcheck.mjs'],health
+          assert (health['Interval'],health['Timeout'],health['StartPeriod'],health['Retries'])==(30000000000,5000000000,30000000000,3),health
+          assert config['User']=='node',config['User']
+          def run(name,port,*argv):
+            command('docker','run','-d','--name',name,'--network','none','--health-interval=1s','--health-start-period=5s','--health-retries=1','-e','PORT='+str(port),image,*argv)
+          def wait(name,wanted):
+            deadline=time.monotonic()+90
+            while time.monotonic()<deadline:
+              record=json.loads(command('docker','inspect',name))[0]
+              assert record['State']['Running'],record['State']
+              health=record['State']['Health']
+              if health['Status']==wanted:
+                print(json.dumps({'name':name,'status':wanted,'health':health}))
+                return
+              time.sleep(1)
+            raise AssertionError('health status deadline: '+name)
+          try:
+            run(names[0],48173)
+            wait(names[0],'healthy')
+            command('docker','exec',names[0],'node','-e',"if(process.getuid()===0)process.exit(1)")
+            run(names[1],48174,'node','--input-type=module','-e',"import{createServer}from'node:http';createServer((q,s)=>{s.writeHead(500);s.end()}).listen(Number(process.env.PORT),'0.0.0.0')")
+            wait(names[1],'unhealthy')
+          finally:
+            for name in names:
+              subprocess.run(['docker','logs','--tail','30',name],check=False)
+              subprocess.run(['docker','rm','-f',name],check=False)
+      - name: Confirm unchanged tracked product source
+        if: always()
+        run: |
+          git rev-parse HEAD
+          git diff --exit-code
