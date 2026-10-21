@@ -61,3 +61,5 @@ jobs:
         run: npm test
       - name: Build the production application
         run: npm run build
+      - name: Verify the source remains unchanged
+        run: git diff --exit-code
