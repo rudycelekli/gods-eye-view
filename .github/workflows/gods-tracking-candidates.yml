@@ -1,0 +1,61 @@
+name: Frozen native tracking gates
+
+on:
+  push:
+    branches: [validation/gods-tracking-20261021]
+
+permissions:
+  contents: read
+
+jobs:
+  tracking:
+    if: github.repository == 'rudycelekli/gods-eye-view'
+    name: ${{ matrix.candidate }} / unchanged native tracking
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - candidate: upstream-baseline
+            sha: 713285b554bbc99c8ae0261fe307beb3cbeb2adf
+          - candidate: route-modes
+            sha: 56f6a20b506f3a38299d5a0d1e14bc3655334f90
+          - candidate: place-distances
+            sha: c0f92207ae6ccdb79dd8d0928211e1454d04c6a1
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '0'
+      PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD: '1'
+      PUPPETEER_CACHE_DIR: ${{ runner.temp }}/gev-pinned-browser
+      GEV_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+      GEV_VALIDATION_RUNTIME: ${{ runner.temp }}/gev-tracking-${{ matrix.candidate }}
+      GEV_EXPECTED_HEAD: ${{ matrix.sha }}
+    steps:
+      - name: Check out the validation-only harness
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: validation
+          sparse-checkout: .github/validation
+          persist-credentials: false
+      - name: Check out frozen standalone source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: candidate
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - name: Use the same calibrated runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+          cache: npm
+          cache-dependency-path: candidate/package-lock.json
+      - name: Check the summary validator and its negative controls
+        run: node --test validation/.github/validation/tracking-summary.test.mjs
+      - name: Install locked dependencies and Puppeteer's pinned Chrome
+        working-directory: candidate
+        run: npm ci
+      - name: Run unchanged native npm test:track against the actual dev server
+        run: node validation/.github/validation/run-tracking.mjs
+      - name: Verify tracked source remains unchanged
+        working-directory: candidate
+        run: git diff --exit-code
