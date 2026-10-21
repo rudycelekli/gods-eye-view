@@ -26,9 +26,7 @@ jobs:
     env:
       PUPPETEER_SKIP_DOWNLOAD: '0'
       PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD: '1'
-      PUPPETEER_CACHE_DIR: ${{ runner.temp }}/gev-pinned-browser
       GEV_CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-      GEV_VALIDATION_RUNTIME: ${{ runner.temp }}/gev-tracking-${{ matrix.candidate }}
       GEV_EXPECTED_HEAD: ${{ matrix.sha }}
     steps:
       - name: Check out the validation-only harness
@@ -51,6 +49,10 @@ jobs:
           cache-dependency-path: candidate/package-lock.json
       - name: Check the summary validator and its negative controls
         run: node --test validation/.github/validation/tracking-summary.test.mjs
+      - name: Set runner-local runtime paths
+        run: |
+          echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/gev-pinned-browser" >> "$GITHUB_ENV"
+          echo "GEV_VALIDATION_RUNTIME=$RUNNER_TEMP/gev-tracking-${{ matrix.candidate }}" >> "$GITHUB_ENV"
       - name: Install locked dependencies and Puppeteer's pinned Chrome
         working-directory: candidate
         run: npm ci
