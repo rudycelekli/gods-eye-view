@@ -172,8 +172,11 @@ export const planRoute = defineTool({
     );
     const km = route.distanceM / 1000;
     const minutes = Math.round(route.durationS / 60);
+    const duration = minutes
+      ? `about ${countNoun(minutes, 'minute')}`
+      : 'under a minute';
     return {
-      summary: `${mode[0].toUpperCase()}${mode.slice(1)} from ${from.label} to ${to.label}: ${km.toFixed(1)} km, about ${minutes} minutes.`,
+      summary: `${mode[0].toUpperCase()}${mode.slice(1)} from ${from.label} to ${to.label}: ${km.toFixed(1)} km, ${duration}.`,
       data: {
         mode,
         from,

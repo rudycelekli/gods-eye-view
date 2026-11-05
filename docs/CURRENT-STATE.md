@@ -6218,6 +6218,10 @@ easier to meet (detection is now on more often), but does not create it.
   `places_nearby` distances wrap the longitude difference. Raw subtraction put
   Savusavu 38,148 km from a camera over the Lau Islands, so the proximity check
   refused it, and sorted a place 2 km across 180° last.
+- `plan_route` states a route's duration with a singular for one minute and as
+  "under a minute" when it rounds to zero, so a 75-second walk reads "about 1
+  minute", not "about 1 minutes", and a 20-second one no longer reads "about 0
+  minutes".
 - CCTV calibration persists at `godsEyeView.cctv.calibration.v2` (v2 rebuild;
   the store was wiped clean, no import from the old `v1` key).
 - CCTV v3 floor QA pins are: zero samples for heading-only edits; zero transient

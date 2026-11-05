@@ -170,6 +170,37 @@ test('routes resolve endpoints, map modes and thin long paths', async () => {
   );
 });
 
+test('a short route reads "about 1 minute" or "under a minute"', async () => {
+  const routeLasting = (durationS) =>
+    composeCatalog({
+      tools: coreTools,
+      services: {
+        routing: {
+          async route(points, profile) {
+            return {
+              ok: true,
+              profile,
+              distanceM: 100,
+              durationS,
+              geometry: points.map((point) => [point.lon, point.lat]),
+            };
+          },
+        },
+      },
+    }).call('plan_route', {
+      from: { lat: 30.27, lon: -97.74 },
+      to: { lat: 30.27, lon: -97.739 },
+    });
+  assert.equal(
+    (await routeLasting(75)).summary,
+    'Walk from 30.2700, -97.7400 to 30.2700, -97.7390: 0.1 km, about 1 minute.',
+  );
+  assert.equal(
+    (await routeLasting(20)).summary,
+    'Walk from 30.2700, -97.7400 to 30.2700, -97.7390: 0.1 km, under a minute.',
+  );
+});
+
 test('the place and route services read the app routes and translate failures', async () => {
   const requested = [];
   const respond = (body, status = 200, headers = {}) =>
