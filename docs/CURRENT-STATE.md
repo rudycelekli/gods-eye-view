@@ -6230,6 +6230,10 @@ easier to meet (detection is now on more often), but does not create it.
 - Aircraft 3D-model and tracking invariants are covered by `npm run test:track`; run this before touching `flights.js`, `militaryFlights.js`, `detection.js`, or `trackedReadout.js`.
 - Annotation resolver behavior is pinned by `src/annotations/annotationResolver.test.mjs`; re-run that suite before changing place-resolution scoring.
 - Layer input handlers (click + keydown) are detached on disable for flights/military/satellites/AIS vessels.
+- A share link's "isn't reporting now" notice gives the fix time alone only
+  when the fix is from today; a fix from an earlier calendar day carries its
+  date, so a link made at 23:30 and opened the next morning reads "at Nov 3,
+  11:30 PM", not "at 11:30 PM".
 - Traffic tile cache is capped and traffic layer supports explicit destroy cleanup.
 - Traffic feed state is honest about simulation. `getStats().mode` is the
   CONFIGURED source ('live' = a TomTom key is present, 'sim' = keyless), NOT

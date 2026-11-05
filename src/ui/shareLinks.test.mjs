@@ -358,6 +358,17 @@ test('the not-reporting notice names the id and the time of the fix', () => {
     sharedFixNotice({ kind: 'vessel', id: '366999712' }, null),
     "366999712 isn't reporting now — showing where it was last seen",
   );
+  // Under a day old but from yesterday: a bare time would read as today.
+  const lateYesterday = new Date(2026, 10, 3, 23, 30).getTime();
+  const thisMorning = new Date(2026, 10, 4, 8, 0).getTime();
+  assert.match(
+    sharedFixNotice(
+      { kind: 'aircraft', id: 'a1b2c3' },
+      lateYesterday,
+      thisMorning,
+    ),
+    /showing where it was at Nov 3, .*30/,
+  );
 });
 
 test('a shared vessel is selected once the vessel feed has it', async (t) => {

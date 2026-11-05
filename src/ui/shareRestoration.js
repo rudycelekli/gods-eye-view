@@ -8,7 +8,6 @@ import { UiLifetime } from './uiLifetime.js';
 /** How long a shared vessel may take to appear in the vessel feed. */
 export const SHARED_VESSEL_WAIT_MS = 120_000;
 const SHARED_VESSEL_POLL_MS = 2_000;
-const DAY_MS = 86_400_000;
 const ENTITY_BY_KIND = new Map(
   SHARE_VIEW_ENTITY_KINDS.map((entry) => [entry.kind, entry]),
 );
@@ -78,9 +77,13 @@ export function sharedFixNotice(entity, observedAtMs, nowMs = Date.now()) {
     return t("{id} isn't reporting now — showing where it was last seen", {
       id,
     });
+  // A bare time reads as today, so a fix from before midnight carries its date
+  // even when it is less than a day old.
+  const sameDay =
+    new Date(observedAtMs).toDateString() === new Date(nowMs).toDateString();
   const time = formatDate(
     observedAtMs,
-    nowMs - observedAtMs < DAY_MS
+    sameDay
       ? { hour: '2-digit', minute: '2-digit' }
       : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
   );
