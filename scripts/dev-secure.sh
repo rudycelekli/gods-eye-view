@@ -36,6 +36,15 @@ if [[ -z "${GOOGLE_MAPS_API_KEY}" ]]; then
   exit 1
 fi
 
+read_dotenv_value() {
+  local variable_name="$1"
+  if ! command -v node >/dev/null 2>&1; then
+    echo "warning: node not found; cannot parse dotenv files" >&2
+    return
+  fi
+  node "$SOURCE_ROOT/scripts/read-dotenv-value.mjs" "${variable_name}"
+}
+
 read_keychain_secret() {
   local service="$1"
   local account="$2"
@@ -69,8 +78,9 @@ load_opensky_oauth_from_file() {
 }
 
 resolve_opensky_credentials() {
+  OPENSKY_AUTH_MODE="${OPENSKY_AUTH_MODE:-$(read_dotenv_value "OPENSKY_AUTH_MODE")}"
   OPENSKY_AUTH_MODE="$(printf '%s' "${OPENSKY_AUTH_MODE:-oauth}" | tr '[:upper:]' '[:lower:]')"
-  OPENSKY_CREDENTIALS_FILE="${OPENSKY_CREDENTIALS_FILE:-}"
+  OPENSKY_CREDENTIALS_FILE="${OPENSKY_CREDENTIALS_FILE:-$(read_dotenv_value "OPENSKY_CREDENTIALS_FILE")}"
   case "${OPENSKY_AUTH_MODE}" in
     basic|oauth|auto|anon) ;;
     *)
@@ -79,10 +89,11 @@ resolve_opensky_credentials() {
       ;;
   esac
 
-  OPENSKY_CLIENT_ID="${OPENSKY_CLIENT_ID:-}"
-  OPENSKY_CLIENT_SECRET="${OPENSKY_CLIENT_SECRET:-}"
-  OPENSKY_USERNAME="${OPENSKY_USERNAME:-}"
-  OPENSKY_PASSWORD="${OPENSKY_PASSWORD:-}"
+  # Explicit env wins, then .env, then the credentials file / Keychain below.
+  OPENSKY_CLIENT_ID="${OPENSKY_CLIENT_ID:-$(read_dotenv_value "OPENSKY_CLIENT_ID")}"
+  OPENSKY_CLIENT_SECRET="${OPENSKY_CLIENT_SECRET:-$(read_dotenv_value "OPENSKY_CLIENT_SECRET")}"
+  OPENSKY_USERNAME="${OPENSKY_USERNAME:-$(read_dotenv_value "OPENSKY_USERNAME")}"
+  OPENSKY_PASSWORD="${OPENSKY_PASSWORD:-$(read_dotenv_value "OPENSKY_PASSWORD")}"
 
   if [[ "${OPENSKY_AUTH_MODE}" == "basic" || "${OPENSKY_AUTH_MODE}" == "auto" ]] && [[ -z "${OPENSKY_USERNAME}" ]]; then
     for svc in "opensky-network" "opensky"; do
@@ -191,13 +202,27 @@ case "${OPENSKY_AUTH_MODE}" in
     ;;
 esac
 
-GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_API_KEY}" \
-CCTV_AUSTIN_MAX_SOURCES="${CCTV_AUSTIN_MAX_SOURCES}" \
-CCTV_MAX_SOURCES="${CCTV_MAX_SOURCES}" \
-OPENSKY_AUTH_MODE="${OPENSKY_AUTH_MODE}" \
-OPENSKY_CREDENTIALS_FILE="${OPENSKY_CREDENTIALS_FILE}" \
-OPENSKY_CLIENT_ID="${OPENSKY_CLIENT_ID}" \
-OPENSKY_CLIENT_SECRET="${OPENSKY_CLIENT_SECRET}" \
-OPENSKY_USERNAME="${OPENSKY_USERNAME}" \
-OPENSKY_PASSWORD="${OPENSKY_PASSWORD}" \
-npm run dev -- --host "${HOST}" --port "${PORT}"
+# A value that resolved to nothing is left UNSET instead of being exported
+# empty: Vite backfills .env values only for variables it finds undefined, so
+# an empty export would shadow a key the user did configure in .env.
+DEV_ENV=(
+  "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}"
+  "CCTV_AUSTIN_MAX_SOURCES=${CCTV_AUSTIN_MAX_SOURCES}"
+  "CCTV_MAX_SOURCES=${CCTV_MAX_SOURCES}"
+  "OPENSKY_AUTH_MODE=${OPENSKY_AUTH_MODE}"
+)
+DEV_UNSET=()
+put_env_if_set() {
+  if [[ -n "$2" ]]; then
+    DEV_ENV+=("$1=$2")
+  else
+    DEV_UNSET+=(-u "$1")
+  fi
+}
+put_env_if_set OPENSKY_CREDENTIALS_FILE "${OPENSKY_CREDENTIALS_FILE}"
+put_env_if_set OPENSKY_CLIENT_ID "${OPENSKY_CLIENT_ID}"
+put_env_if_set OPENSKY_CLIENT_SECRET "${OPENSKY_CLIENT_SECRET}"
+put_env_if_set OPENSKY_USERNAME "${OPENSKY_USERNAME}"
+put_env_if_set OPENSKY_PASSWORD "${OPENSKY_PASSWORD}"
+
+env ${DEV_UNSET[@]+"${DEV_UNSET[@]}"} "${DEV_ENV[@]}" npm run dev -- --host "${HOST}" --port "${PORT}"

@@ -132,3 +132,41 @@ bashTest('the external-keys provenance block survives set -u keyless and joins n
   });
   assert.equal(keyed.stdout, 'FIRMS_MAP_KEY,TOMTOM_API_KEY');
 });
+
+// dev-secure starts Vite with an explicit environment too. An OpenSky value it
+// resolved to nothing must be left unset, not exported empty, or it hides the
+// one the user wrote in .env; values in .env itself are read like dev-fresh.
+bashTest('dev-secure passes OpenSky credentials from .env and never exports them empty', async () => {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const run = promisify(execFile);
+  const project = await fs.mkdtemp(path.join(os.tmpdir(), 'gev-dev-secure-'));
+  const bin = path.join(project, 'bin');
+  try {
+    await fs.mkdir(bin);
+    await fs.writeFile(path.join(project, '.env'), 'OPENSKY_CLIENT_ID=env-file-id\nOPENSKY_CLIENT_SECRET=env-file-secret\n');
+    await fs.writeFile(
+      path.join(bin, 'npm'),
+      '#!/usr/bin/env bash\nfor v in OPENSKY_AUTH_MODE OPENSKY_CLIENT_ID OPENSKY_CLIENT_SECRET OPENSKY_USERNAME OPENSKY_PASSWORD; do\n  if [[ -n "${!v+x}" ]]; then echo "$v=${!v}"; else echo "$v unset"; fi\ndone\n',
+      { mode: 0o755 },
+    );
+    await fs.writeFile(path.join(bin, 'security'), '#!/usr/bin/env bash\nexit 44\n', { mode: 0o755 });
+    const { stdout } = await run('bash', [new URL('../scripts/dev-secure.sh', import.meta.url).pathname], {
+      env: {
+        PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+        HOME: project,
+        GEV_PROJECT_ROOT: project,
+        GOOGLE_MAPS_API_KEY: 'fixture-browser-key',
+        OPENSKY_USERNAME: '',
+      },
+    });
+    assert.match(stdout, /OpenSky OAuth: configured/);
+    assert.match(stdout, /^OPENSKY_AUTH_MODE=oauth$/m);
+    assert.match(stdout, /^OPENSKY_CLIENT_ID=env-file-id$/m);
+    assert.match(stdout, /^OPENSKY_CLIENT_SECRET=env-file-secret$/m);
+    assert.match(stdout, /^OPENSKY_USERNAME unset$/m);
+    assert.match(stdout, /^OPENSKY_PASSWORD unset$/m);
+  } finally {
+    await fs.rm(project, { recursive: true, force: true });
+  }
+});

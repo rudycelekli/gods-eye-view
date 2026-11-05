@@ -5964,6 +5964,10 @@ dependency `dist/` assets. Checkout glob characters are escaped. This does not
 apply to `public/` assets or built-preview serving.
 
 - Recommended launcher: `./scripts/dev-fresh.sh` (also: `dev-secure.sh` for stricter bindings, `dev-cctv.sh` for CCTV source-pack tuning)
+- `dev-secure.sh` resolves OpenSky settings the way `dev-fresh.sh` does: the
+  shell environment, then `.env`, then the credentials file and Keychain. An
+  OpenSky value that resolves to nothing is left unset for Vite rather than
+  exported empty, so it no longer hides OAuth client credentials kept in `.env`.
 - A successful Pinokio install writes the owner-only `pinokio/.installed`
   marker. The nested launcher menu resolves that marker from its own directory:
   an absent marker exposes Install, a present marker exposes Start, and a
