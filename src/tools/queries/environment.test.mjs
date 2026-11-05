@@ -154,6 +154,26 @@ test('cyclones are listed strongest first and can be limited to an area', async 
   );
 });
 
+test('cyclones served from the cached advisory say they may be stale', async () => {
+  const cyclones = {
+    async getSnapshot() {
+      return {
+        source: 'NOAA NHC / CPHC',
+        stale: true,
+        unavailable: false,
+        reason: 'Cached cyclone advisory; upstream unavailable',
+        storms: [storm('a', 'Alpha', 25, -70, 65)],
+      };
+    },
+  };
+  const result = await catalogWith({ cyclones }).call('get_cyclones', {});
+  assert.equal(
+    result.summary,
+    '1 active tropical cyclone; strongest Alpha at 65 kt (data may be stale).',
+  );
+  assert.equal(result.data.stale, true);
+});
+
 test('fire perimeters are placed by their outline and sorted by size', async () => {
   const ring = (lon, lat) => [
     [

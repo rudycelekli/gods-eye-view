@@ -215,12 +215,15 @@ export const getCyclones = defineTool({
       }))
       .sort((a, b) => (b.wind_kt ?? 0) - (a.wind_kt ?? 0));
     const where = area ? ` in ${area.label}` : '';
+    // The proxy answers from its cached advisories, marked stale, when NHC fails.
+    const stale = snapshot.stale === true;
     return {
       summary:
         `${countNoun(storms.length, 'active tropical cyclone')}${where}` +
         (storms[0]
-          ? `; strongest ${storms[0].name} at ${storms[0].wind_kt} kt.`
-          : '.'),
+          ? `; strongest ${storms[0].name} at ${storms[0].wind_kt} kt`
+          : '') +
+        (stale ? ' (data may be stale).' : '.'),
       data: {
         view: suggestView(
           services,
@@ -236,7 +239,7 @@ export const getCyclones = defineTool({
         coverage: snapshot.coverage ?? null,
         source: snapshot.source ?? null,
         attribution: snapshot.attribution ?? null,
-        stale: snapshot.stale === true,
+        stale,
       },
     };
   },
