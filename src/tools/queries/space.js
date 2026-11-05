@@ -215,7 +215,7 @@ export const nextSatellitePass = defineTool({
     const name = satellite.name;
     if (!pass)
       return {
-        summary: `${name} has no ${args.visible_only ? 'visible ' : ''}pass over ${point.label} in the next ${hours} hours${staleNote}.`,
+        summary: `${name} has no ${args.visible_only ? 'visible ' : ''}pass over ${point.label} in the next ${countNoun(hours, 'hour')}${staleNote}.`,
         data: {
           view: followSatellite(services, point, satellite),
           stale,

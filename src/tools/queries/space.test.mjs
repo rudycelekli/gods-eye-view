@@ -248,6 +248,15 @@ test('a pass that never comes is a normal answer, and catalog failures are unava
     none.summary,
     'ISS (ZARYA) has no pass over 89.9000, 0.0000 in the next 6 hours.',
   );
+  // The ISS next rises over New York at 16:25 UTC, past a one-hour window.
+  const oneHour = await catalog.call('next_satellite_pass', {
+    location: { lat: 40.7, lon: -74 },
+    hours: 1,
+  });
+  assert.equal(
+    oneHour.summary,
+    'ISS (ZARYA) has no pass over 40.7000, -74.0000 in the next 1 hour.',
+  );
   const down = composeCatalog({
     tools: coreTools,
     services: { satellites: satellites('', false), clock: CLOCK },
