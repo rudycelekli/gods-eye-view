@@ -199,6 +199,27 @@ test('the next pass defaults to the ISS and reports times, peak and direction', 
   );
 });
 
+test('a pass already underway says the satellite is up now, not that it rises', async () => {
+  const at = (now) =>
+    composeCatalog({
+      tools: coreTools,
+      services: { satellites: satellites(), clock: { now: () => now } },
+    }).call('next_satellite_pass', { location: { lat: 40.7, lon: -74 } });
+  const upcoming = (await at(CLOCK.now())).data.pass;
+  assert.equal(upcoming.in_progress, false);
+  const result = await at(Date.parse(upcoming.peak));
+  const { pass } = result.data;
+  assert.equal(pass.in_progress, true);
+  assert.ok(Math.abs(Date.parse(pass.set) - Date.parse(upcoming.set)) < 5_000);
+  assert.match(
+    result.summary,
+    new RegExp(
+      `^ISS \\(ZARYA\\) is above 40.7000, -74.0000 now in the ${pass.rise_direction}, setting at ${pass.set}, peaking at \\d+°`,
+    ),
+  );
+  assert.doesNotMatch(result.summary, /rises/);
+});
+
 test('satellites are matched by name or catalog number within the group', async () => {
   const source = satellites();
   const catalog = composeCatalog({

@@ -203,11 +203,12 @@ export const nextSatellitePass = defineTool({
         `No satellite matching "${args.satellite ?? 'ISS'}" is in the ${group} group`,
       );
     const hours = args.hours ?? 24;
+    const fromMs = nowMs(services);
     const pass = findNextSatellitePass({
       satrec: satellite.satrec,
       latDeg: point.lat,
       lonDeg: point.lon,
-      fromMs: nowMs(services),
+      fromMs,
       minElevDeg: args.min_elevation_deg ?? 10,
       horizonHours: hours,
       requireVisible: args.visible_only === true,
@@ -225,9 +226,15 @@ export const nextSatellitePass = defineTool({
           pass: null,
         },
       };
+    // A pass already underway starts at the search time, not at a rise: the
+    // satellite is above the observer now, in the direction given.
+    const inProgress = pass.riseMs <= fromMs;
     return {
       summary:
-        `${name} next rises over ${point.label} at ${isoTime(pass.riseMs)} in the ${compass(pass.riseAzDeg)}, ` +
+        (inProgress
+          ? `${name} is above ${point.label} now in the ${compass(pass.riseAzDeg)}, ` +
+            `setting at ${isoTime(pass.setMs)}, `
+          : `${name} next rises over ${point.label} at ${isoTime(pass.riseMs)} in the ${compass(pass.riseAzDeg)}, `) +
         `peaking at ${Math.round(pass.maxElevDeg)}°` +
         `${pass.visible ? '; visible to the naked eye' : ''}${staleNote}.`,
       data: {
@@ -244,6 +251,7 @@ export const nextSatellitePass = defineTool({
           rise_azimuth_deg: round(pass.riseAzDeg, 0),
           rise_direction: compass(pass.riseAzDeg),
           visible: pass.visible,
+          in_progress: inProgress,
         },
       },
     };
